@@ -1,0 +1,57 @@
+zx:
+    date: 20170517
+    sequence: 19
+
+zy:
+    date: 20170516
+    sequence: 17
+
+xy:
+    date: 20170517
+    sequence: 13
+
+zx_zoom:
+    date: 20170518
+    sequence: 9
+
+z_snapoff:
+    date: 20170523
+    sequence: 11
+
+mixer_025:
+    date: 20170523
+    sequence: 29
+    zx_freq: 220
+
+mixer_0225:
+    date: 20170523
+    sequence: 33
+    zx_freq: 203
+
+mixer_020:
+    date: 20170523
+    sequence: 37
+    zx_freq: 183
+
+zx_03:
+    date: 20170526
+    sequence: 33
+    zx_freq: 274
+
+zx_02675:
+    date: 20170526
+    sequence: 37
+    zx_freq: 254
+
+# All snapoffs together on 31 May
+z_snap:
+    date: 20170531
+    sequence: 34
+
+x_snap:
+    date: 20170531
+    sequence: 35
+
+y_snap:
+    date: 20170531
+    sequence: 36
