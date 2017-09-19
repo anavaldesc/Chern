@@ -91,9 +91,9 @@ sequence_type = 'thermal_rabi_flop'
 
 folder = getfolder(date, sequence)
 outfile = '{}_{}_{:04d}.h5'.format(sequence_type, date, sequence)
-
+n_shots = 20
 Raman_pulse_time = []
-probe_list = deque([], 10)
+probe_list = deque([], n_shots)
 od_list = []
 integrated_od = []
 
@@ -108,20 +108,27 @@ except IOError:
 
 if redo_prepare:
 #make probe list firts
+    i =0
     print('Preparing {} probe list...'.format(sequence_type))
     for r, file in matchfiles(folder):
-        with h5py.File(os.path.join(r, file), 'r') as h5_file:
-            try:
-                img = h5_file['data']['images' + camera]['Raw'][:]
-                probe = img[1] - img[2]
-                probe_list.append(probe)
+        i += 1
+        if i < n_shots:
+            with h5py.File(os.path.join(r, file), 'r') as h5_file:
+                try:
+                    img = h5_file['data']['images' + camera]['Raw'][:]
+                    
+                    if camera == 'ProEM':
+                        probe = img[0] - img[2]
+                        
+                    else:
+                        probe = img[1] - img[2]
+                    probe_list.append(probe)
+                    
+                except KeyError:
+                    
+                    print('bad shot')
                 
-            except KeyError:
-                
-                print('bad shot')
-            
-        probe = img[1] - img[2]
-        probe_list.append(probe)
+            probe_list.append(probe)
 
 
     print('Preparing {} data...'.format(sequence_type))

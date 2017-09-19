@@ -35,11 +35,11 @@ def bin_image(image, n_pixels):
 
 camera = 'ProEM'
 date = 20170831
-sequence = 78
+sequence = 21
 redo_prepare = True
 fringe_removal = True
 crop = True
-sequence_type = 'optimal_position'
+sequence_type = 'three_state_Ramsey'
 
 positions = [[253, 424], [338, 274], [537, 265]] #starting in mf=0
 positions = [[175, 383], [254, 193], [432, 113]] #starting in mf=1, ProEM
@@ -53,7 +53,8 @@ w_crop = 80
 folder = utils.getfolder(date, sequence)
 outfile = '{}_{}_{:04d}.h5'.format(sequence_type, date, sequence)
 
-Raman_pulse_time = []
+indexed_variable = []
+indexed_variable_name = 'free_evolution_time'
 roi_sum = []
 rois_array = []
 od_array = []
@@ -95,11 +96,14 @@ if redo_prepare:
     print('Preparing {} data...'.format(sequence_type))
     for r, file in utils.matchfiles(folder):
         with h5py.File(os.path.join(r, file), 'r') as h5_file:
+            
+            try:
+                
 
             img = h5_file['data']['images' + camera]['Raw'][:]
             
             attrs = h5_file['globals'].attrs
-            Raman_pulse_time.append(attrs['Raman_pulse_time'])      
+            indexed_variable.append(attrs[indexed_variable_name])      
             
             img = np.float64(img)
             if camera == 'ProEM':
@@ -133,56 +137,13 @@ if redo_prepare:
 
             roi_sum.append(np.sum(rois))
             rois_array.append(rois)
-                
-#                od = imutils.rotate_bound(od, theta)
-                
-#                if crop:
-#            
-#            od = od[y_crop - wy_crop: y_crop + wy_crop, x_crop - wx_crop: x_crop + wx_crop]
-#            
-#            try:
-#            
-#                blob =  dbf.blob_detect(od,show=True,max_sigma=20, min_sigma = 10,
-#                             num_sigma=5, threshold=.2)
-#                y_blob, x_blob = blob[0][0:2] 
-#                x_blob += x_crop - wx_crop
-#                y_blob += y_crop - wy_crop
-#                print[blob[0][0:2]]
-#            
-#          
-#            except Exception as e:
-#                
-#                y_blob, x_blob = [np.nan, np.nan]
-##                print (y_blob, x_blob)
-##                print (e)
-#    
-#        else:
-#            
-#            try:
-#            
-#                blob =  dbf.blob_detect(od,show=True,max_sigma=30, min_sigma = 25,
-#                             num_sigma=5, threshold=.2)
-#                y_blob, x_blob = blob[0][0:2] 
-#                print(blob)
-#            
-##                print(blob)
-#            except TypeError:
-#                
-#                 y_blob, x_blob = [np.nan, np.nan]
-                
-            
-    
-#        x_val.append(x_blob)
-#        y_val.append(y_blob)
-#        plt.imshow(od, vmin=0, vmax=1)
-#        plt.show()
+
     df = pd.DataFrame()
-#    df['x_val'] = x_val
-#    df['y_val'] = y_val
+
 
 #    df['p1'] = p1
 #    df['p2'] = p2
-    df['Raman_pulse_time'] = Raman_pulse_time
+    df[indexed_variable_name] = indexed_variable
     df['roi_sum'] = roi_sum
 
     df = df.dropna()
