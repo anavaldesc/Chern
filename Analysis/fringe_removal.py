@@ -83,16 +83,17 @@ def fringeremoval(img_list, ref_list, mask='all', method='svd'):
 
 
 camera = 'XY_Flea3'
-date = 20170728
-sequence = 15
+camera = 'ProEM'
+date = 20170831
+sequence = 78
 redo_prepare = True
 sequence_type = 'thermal_rabi_flop'
 
 folder = getfolder(date, sequence)
 outfile = '{}_{}_{:04d}.h5'.format(sequence_type, date, sequence)
-
+n_shots = 20
 Raman_pulse_time = []
-probe_list = deque([], 40)
+probe_list = deque([], n_shots)
 od_list = []
 integrated_od = []
 
@@ -107,20 +108,27 @@ except IOError:
 
 if redo_prepare:
 #make probe list firts
+    i =0
     print('Preparing {} probe list...'.format(sequence_type))
     for r, file in matchfiles(folder):
-        with h5py.File(os.path.join(r, file), 'r') as h5_file:
-            try:
-                img = h5_file['data']['images' + camera]['Raw'][:]
-                probe = img[1] - img[2]
-                probe_list.append(probe)
+        i += 1
+        if i < n_shots:
+            with h5py.File(os.path.join(r, file), 'r') as h5_file:
+                try:
+                    img = h5_file['data']['images' + camera]['Raw'][:]
+                    
+                    if camera == 'ProEM':
+                        probe = img[0] - img[2]
+                        
+                    else:
+                        probe = img[1] - img[2]
+                    probe_list.append(probe)
+                    
+                except KeyError:
+                    
+                    print('bad shot')
                 
-            except KeyError:
-                
-                print('bad shot')
-            
-        probe = img[1] - img[2]
-        probe_list.append(probe)
+            probe_list.append(probe)
 
 
     print('Preparing {} data...'.format(sequence_type))
@@ -132,8 +140,14 @@ if redo_prepare:
             Raman_pulse_time.append(attrs['Raman_pulse_time'])            
             
         img = np.float64(img)
-        atoms = img[0] - img[2]
-        probe = img[1] - img[2]
+        if camera == 'ProEM':
+            probe = img[0] - img[2]
+            atoms = img[1] - img[3]
+        
+        else:
+            
+            atoms = img[0] - img[2]
+            probe = img[1] - img[2]
         
         probe_list.append(probe)
         opt_ref  = fringeremoval([atoms], probe_list,
@@ -153,13 +167,23 @@ if redo_prepare:
 #    df['delta_xyz'] = delta_xyz
 
     df = df.dropna()
-    df = df.sort_values(by='Raman_pulse_time')
+#    df = df.sort_values(by='Raman_pulse_time')
     df.to_hdf('results/' + outfile, 'data', mode='w')
 else:
     df = pd.read_hdf('results/' + outfile, 'data')
 
         
+#%%        
 
+od_list = np.array(od_list)
+od_list_mean = od_list.reshape(120, 4, 512, 512)
+od_list_mean = od_list_mean.mean(axis=1)
+
+#%%
+indices = df.index/4
+df['indices'] = indices
+df_sort = df.sort_values(by='Raman_pulse_time')
+indices_sort = df_sort.indices[::4]
 #%%
 from Figtodat import fig2img
 from images2gif import writeGif
@@ -167,26 +191,26 @@ from images2gif import writeGif
 figure = plt.figure()
 plot   = figure.add_subplot(111)
 plot.hold(False)
-indices = df.index
+#indices = df.index
 images=[]
+for i in indices_sort:
+    
+    plt.imshow(od_list[i].T, vmin=0, vmax=0.7)
+    plt.show()
+    print(i)
+#blob =  dbf.blob_detect(od,show=True,max_sigma=100, min_sigma = 90,
+#                        num_sigma=5, threshold=.2)
+#y_blob, x_blob = blob[0][0:2]
+#print(x_blob, y_blob)
 
-plt.imshow(od_list[indices[1]], vmin=0, vmax=1)
-od = od_list[indices[1]].T
-blob =  dbf.blob_detect(od,show=True,max_sigma=100, min_sigma = 90,
-                        num_sigma=5, threshold=.2)
-y_blob, x_blob = blob[0][0:2]
-print(x_blob, y_blob)
 #%%
-sorted_roi = []
-x_0 = [x_blob, y_blob]
-for idx in indices[0:50]:                        
+for i in indices_sort:
 
-    od = od_list[idx].T
-    od0 = od[x0[0]-wx:x0[0]+wx, x0[1]-wy:x0[1]+wy]
-    sorted_roi.append(od0)
+    plot.imshow(od_list_mean[i].T, vmin= -0.1, vmax=0.7)
+    im = fig2img(figure)
+    images.append(im)
 
-plt.imshow(sorted_roi[49])
-plt.show()
+writeGif("long_rabi_flop.gif",images, duration=0.3, dither=0)
 
 #%%
 n = 50
@@ -216,11 +240,3 @@ plt.xticks([])
 plt.yticks([])
 plt.xlabel('q_x')
 plt.ylabel('Frequency')
-#%%
-for i in df.index[1::2]:
-
-    plot.imshow(od_list[i], vmin= 0.0, vmax=1)
-    im = fig2img(figure)
-    images.append(im)
-
-writeGif("rabi_flop.gif",images, duration=0.3, dither=0)

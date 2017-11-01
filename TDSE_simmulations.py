@@ -254,8 +254,8 @@ def H_RashbaRF(t, qx, qy, Omega1, Omega2, Omega3):
 #    k3_y = -np.sin(2 * np.pi)
     
     H = np.array([[(qx+k1_x)**2 + (qy+k1_y)**2, 1.0j*Omega1, Omega3], 
-          [-1.0j*Omega1, (qx+k2_x)**2 + (qy+k2_y)**2+4*1.839e3, -1.0j*Omega2], 
-          [Omega3, 1.0j*Omega2, (qx+k3_x)**2 + (qy+k3_y)**2+4*1.839e3]])
+          [-1.0j*Omega1, (qx+k2_x)**2 + (qy+k2_y)**2+0*1.839e3, -1.0j*Omega2], 
+          [Omega3, 1.0j*Omega2, (qx+k3_x)**2 + (qy+k3_y)**2+0*1.839e3]])
     H = np.array(H, dtype='complex')
 
     return H 
@@ -297,6 +297,40 @@ def H_Rashba(t, qx, qy, Delta_z):
     
 #%%
 '''
+Look at Rashba eigenstates
+'''
+
+from cmath import phase
+Omega = 3.0
+delta = 0
+t0 = 0.0 # Initial time
+kvec = np.linspace(-1, 1, 60)
+qx = 0.01
+qy = 0
+t1 = 6
+Psi_arr = []
+
+for qx in kvec:
+    Psi_vec = []
+    for qy in kvec:
+        
+        Psi0 = np.linalg.eigh(H_RashbaRF(t0, qx, qy, Omega, Omega , Omega))[1]
+        Psi_vec.append(Psi0)
+    Psi_arr.append(Psi_vec)
+
+
+#def eigen_array(arr, idx):
+#    
+prop_arr = []
+for i in range(arr.shape[0]):
+    prop_arr.append([phase_arr(arr[i, j, :, 1]) for j in range(arr.shape[1])])
+            
+
+#phase_arr = np.vectorize(phase)
+#phi0 = phase(Psi_arr[1,1,0,1])
+
+#%%
+'''
 this chunk is to plot 2D fringes for a given Ramsey wait time
 '''
  
@@ -324,9 +358,9 @@ for qx in kvec:
         dt = (t1 - t0) / 1e3# T
         t_wait = t1 - 1.0 / ( Omega_big) / 8
         Psi0 = np.array([1,0, 0])
-        Psi0 = np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega , Omega))[1]
+        Psi0 = np.linalg.eigh(H_RashbaRF(t0, qx, qy, Omega, Omega , Omega))[1]
         Psi0 = Psi0[:,0]
-        E.append(np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega, Omega))[0])
+        E.append(np.linalg.eigh(H_RashbaRF(t0, qx, qy, Omega, Omega, Omega))[0])
         args = [H_RashbaRamsey, qx, qy, Omega, Omega_big, t_wait]
         t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
         #plt.plot(t_result, np.imag(psi_result[:,0]))
@@ -334,9 +368,9 @@ for qx in kvec:
     #        plt.plot(t_result, np.abs(psi_result[:, i])**2)
 #        plt.plot(t_result, np.real(psi_result[:,0])**2)
         psi_final.append(psi_result[-1])  
-        phi0.append(cmath.phase(Psi0[0]))
-        phi1.append(cmath.phase(Psi0[1]))
-        phi2.append(cmath.phase(Psi0[2]))
+        phi0.append(phase(Psi0[0]))
+        phi1.append(phase(Psi0[1]))
+        phi2.append(phase(Psi0[2]))
 
 gs = gridspec.GridSpec(1, 3)
 plt.figure(figsize=(11, 3))

@@ -138,14 +138,14 @@ psd_vec = []
 for i in range(len(sorted_fractions)):
     frac_ft = np.fft.fftshift( np.fft.fft(sorted_fractions[i]-sorted_fractions[i].mean()))
     N = len(frac_ft)
-    psd = np.abs(frac_ft[N/2::])**2
+    psd = np.abs(frac_ft[int(N/2)::])**2
 #    plt.plot(psd)
     psd_vec.append(psd)
 
 psd = np.array(psd_vec)
 psd /= psd.max()
 N = len(sorted_fractions[0])
-freqs = np.fft.fftfreq(N, d=1)[0:N/2]
+freqs = np.fft.fftfreq(N, d=1)[0:int(N/2)]
 plt.pcolormesh(psd, vmin=0, vmax=1, cmap='YlGn')
 plt.axis('Tight')
 plt.ylabel('free evolution time [us]')
@@ -160,7 +160,7 @@ psd_vec = []
 for i in range(len(sorted_fractions[0])):
     frac_ft = np.fft.fftshift( np.fft.fft(sorted_fractions[:,i]-sorted_fractions[:,i].mean()))
     N = len(frac_ft)
-    psd = np.abs(frac_ft[N/2::])**2
+    psd = np.abs(frac_ft[int(N/2)::])**2
 #    plt.plot(psd)
     psd_vec.append(psd)
 
@@ -170,7 +170,7 @@ N = len(sorted_fractions[:,0])
 fet = df.as_matrix().T[0]
 d = fet[1] - fet[0]
 d = d*1e-6
-freqs = np.fft.fftfreq(N, d)[0:N/2]*1e-3
+freqs = np.fft.fftfreq(N, d)[0:int(N/2)]*1e-3
 plt.pcolormesh(psd.T, vmin=0, vmax=1, cmap='YlGn')
 plt.xlabel('pixel')
 plt.ylabel('Frequency [kHz]')

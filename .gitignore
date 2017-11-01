@@ -1,3 +1,9 @@
+<<<<<<< HEAD
 # Object file
 *.pyc
 Data/
+=======
+# Ignore
+*.pyc
+Data/
+>>>>>>> 00e4c5eb124ebe46a8854c88e19b03a8774e15dc

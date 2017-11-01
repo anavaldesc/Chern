@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Oct  9 12:33:49 2017
+
+@author: banano
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.constants import hbar, c
+
+def alpha(wavelength):
+    c = 2.99792458 * 1e8
+    omega = 2 * np.pi * c / wavelength * 1e-9
+    omega_2  = 2 * np.pi * c / 780.24*1e-9
+    omega_1 = 2 * np.pi * c / 794.98*1e-9
+    alpha = 2 / (omega - omega_2) + 1 / (omega - omega_1)
+
+    return alpha
+
+def alpha_v(wavelength):
+    
+    c = 2.99792458 * 1e8
+    omega_2  = 2 * np.pi * c / 780.24*1e-9
+    omega_1 = 2 * np.pi * c / 794.98*1e-9
+    omega_0 = (2 * omega_1 + omega_2) / 3
+    omega = 2 * np.pi * c / wavelength * 1e-9
+    alpha_v = alpha(wavelength) / (omega - omega_0)
+    
+    return alpha_v
+
+
+def scattering(wavelength):
+    omega = 2 * np.pi * c / wavelength * 1e-9
+    omega_2  = 2 * np.pi * c / 780.24*1e-9
+    omega_1 = 2 * np.pi * c / 794.98*1e-9
+    scattering = 2 / (omega - omega_2)**2 + 1 / (omega - omega_1)**2
+    
+    return scattering
+    
+
+wavelengths = np.linspace(770, 800, 1e3)
+alphas = alpha(wavelengths)
+alphas_v = alpha_v(wavelengths)
+scatter_rates = scattering(wavelengths)
+u = np.pi * c**2 * 6e6 / (2 * (2 * np.pi * c / 794.98*1e-9)**3) * alphas
+#plt.semilogy(wavelengths, np.abs(alphas))
+#plt.semilogy(wavelengths, np.abs(alphas_v))
+plt.semilogy(wavelengths, scatter_rates)
+plt.xlabel('Wavelength [nm]')
+plt.ylabel('Scattering rates')
+alpha_min = np.abs(alphas_v[np.argmin(np.abs(alphas))])
+#plt.hlines(alpha_min, wavelengths.min(), wavelengths.max(),
+#           linestyle='--')
+#plt.hlines(5 * alpha_min, wavelengths.min(), wavelengths.max(),
+#           linestyle='-.')
+plt.axis('Tight')
