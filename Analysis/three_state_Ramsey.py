@@ -98,46 +98,48 @@ if redo_prepare:
         with h5py.File(os.path.join(r, file), 'r') as h5_file:
             
             try:
+                img = h5_file['data']['images' + camera]['Raw'][:]
+                img = np.float64(img)
+                if camera == 'ProEM':
+                    atoms = img[1] - img[3]
+                    probe = img[0] - img[2]
+                    
+                else:
+                    atoms = img[0] - img[2]
+                    probe = img[1] - img[2]
                 
-
-            img = h5_file['data']['images' + camera]['Raw'][:]
-            
+                if fringe_removal:
+                    probe_list.append(probe)
+                    opt_ref  = utils.fringeremoval([atoms], probe_list,
+                                 mask='all', method='svd')
+                    od = -np.log(((atoms < 1) + atoms) / 
+                                ((opt_ref[0] < 1) + opt_ref[0]))
+    #                od = od + (probe - atoms) / isat
+                
+                else:
+                    
+                    od = -np.log(((atoms < 1) + atoms) / ((probe < 1) + probe))
+                
+    #            od = od.T
+                od_array.append(od)
+                rois = []
+                
+                for pos in positions:
+                    
+                    x,y = pos
+                    rois.append(od[x - w_crop:x + w_crop, y - w_crop:y + w_crop])
+    
+                roi_sum.append(np.sum(rois))
+                rois_array.append(rois)
+                
+            except KeyError:
+                
+                print('bad shot')
+                
+                
             attrs = h5_file['globals'].attrs
-            indexed_variable.append(attrs[indexed_variable_name])      
+            indexed_variable.append(attrs[indexed_variable_name])  
             
-            img = np.float64(img)
-            if camera == 'ProEM':
-                atoms = img[1] - img[3]
-                probe = img[0] - img[2]
-                
-            else:
-                atoms = img[0] - img[2]
-                probe = img[1] - img[2]
-            
-            if fringe_removal:
-                probe_list.append(probe)
-                opt_ref  = utils.fringeremoval([atoms], probe_list,
-                             mask='all', method='svd')
-                od = -np.log(((atoms < 1) + atoms) / 
-                            ((opt_ref[0] < 1) + opt_ref[0]))
-#                od = od + (probe - atoms) / isat
-            
-            else:
-                
-                od = -np.log(((atoms < 1) + atoms) / ((probe < 1) + probe))
-            
-#            od = od.T
-            od_array.append(od)
-            rois = []
-            
-            for pos in positions:
-                
-                x,y = pos
-                rois.append(od[x - w_crop:x + w_crop, y - w_crop:y + w_crop])
-
-            roi_sum.append(np.sum(rois))
-            rois_array.append(rois)
-
     df = pd.DataFrame()
 
 
@@ -154,11 +156,13 @@ else:
     
 
 #%%
-
-n_repetitions = 3
-n_points = 120
+'''
+sort and average over repetitions
+'''
+n_repetitions = 5
+n_points = 60
 df['indices'] = df.index / n_repetitions
-df  = df.sort_values(by='Raman_pulse_time')
+df  = df.sort_values(by=indexed_variable_name)
 rois_array = np.array(rois_array)
 rois_array = rois_array.reshape(n_points, n_repetitions, 3, 
                                 2 * w_crop, 2 * w_crop)
@@ -175,34 +179,34 @@ for idx in indices:
 rois_sorted = np.array(rois_sorted)
 rois_sorted_sum = rois_sorted.sum(axis=1)
 
+
 #%%
+
+'''
+plot a single pixel
+'''
+
 labels = ['z state', 'x state', 'y state']
-tt = df['Raman_pulse_time'][::n_repetitions]
-x_pixel = 80
-y_pixel = 60
+tt = df[indexed_variable_name][::n_repetitions]
+x_pixel = 42
+y_pixel = 50
 
 for i in range(3):
     psum = rois_sorted[:,:, x_pixel, y_pixel].sum(axis=1).max()
     psum = 1
     plt.plot(tt, rois_sorted[:,i, x_pixel, y_pixel] / psum, label=labels[i])
 plt.legend()        
-plt.xlabel('Raman pulse time [us]')
-plt.ylabel('Fraction')      
-#%%
-import scipy.signal as ss
-N = len(tt)
-dt = tt.values[1] - tt.values[0]
-dt = dt * 1e-6
-xf = np.linspace(0.0, 1/(2 * dt), int(N / 2))
-lspops = np.array([ss.lombscargle(tt.values, rois_sorted[:,i, x_pixel, y_pixel]-rois_sorted[:,i, x_pixel, y_pixel].mean(axis=0) ,
-                                  2*np.pi * xf + 1e-15) for i in range(3)])
-#%%
-plt.plot(xf * 1e-3, lspops[1])
-#plt.xlim(0, 200)
+plt.xlabel('Free evolution time [us]')
+plt.ylabel('Optical depth')      
 
-#%%    
-idx = floor(indices[50])
-n_pixels = 2
+#%%  
+
+'''
+image reconstruction
+'''
+  
+idx = floor(indices[59])
+n_pixels = 1
 p0, p1, p2 = rois_mean[idx, :, :, :]
 p0 = bin_image(p0, n_pixels)
 p1 = bin_image(p1, n_pixels)
@@ -214,19 +218,19 @@ fig = plt.figure()
 
 plt.subplot(gs[0])
 plt.title('z state')
-plt.imshow(p0, interpolation='none', vmin=0, vmax=0.3)
+plt.imshow(p0, interpolation='none', vmin=0, vmax=0.2)
 
 plt.subplot(gs[1])
 plt.title('x state')
-plt.imshow(p1, interpolation='none', vmin=0, vmax=0.3)
+plt.imshow(p1, interpolation='none', vmin=0, vmax=0.2)
 
 plt.subplot(gs[2])
 plt.title('y state')
-plt.imshow(p2, interpolation='none', vmin=0, vmax=0.3)
+plt.imshow(p2, interpolation='none', vmin=0, vmax=0.2)
 
 plt.subplot(gs[3])
 plt.title('sum')
-plt.imshow(psum, interpolation='none', vmin=0, vmax=0.3)
+plt.imshow(psum, interpolation='none', vmin=0, vmax=0.2)
 
 
             

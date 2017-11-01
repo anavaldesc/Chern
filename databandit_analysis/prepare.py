@@ -7,24 +7,23 @@ camera = 'ProEM'
 
 with h5py.File(data, 'r') as f:
     
-    try:
+
     
-        img = h5_file['data']['images' + camera]['Raw'][:]           
-        attrs = h5_file['globals'].attrs
-        indexed_variable = attrs[indexed_variable_name]
-    
-        if camera == 'ProEM':
-            atoms = img[1] - img[3]
-            probe = img[0] - img[2]
-            
-        else:
-            atoms = img[0] - img[2]
-            probe = img[1] - img[2]
+    img = h5_file['data']['images' + camera]['Raw'][:]           
+    attrs = h5_file['globals'].attrs
+    indexed_variable = attrs[indexed_variable_name]
+
+    if camera == 'ProEM':
+        atoms = img[1] - img[3]
+        probe = img[0] - img[2]
         
-        dv_atoms = atoms
-        dv_probe = probe
+    else:
+        atoms = img[0] - img[2]
+        probe = img[1] - img[2]
     
-    except KeyError:
+    dv_atoms = atoms
+    dv_probe = probe
+
         
         
     
@@ -36,4 +35,5 @@ with h5py.File(data, 'r') as f:
 
     attrs = f['globals'].attrs
     df_arpfinebias = attrs['ARP_FineBias']
-    df_delta_xyz = attrs['delta_xyz']
+    df_delta_xy = attrs['delta_xy']
+    df_delta_zx = attrs['delta_zx']

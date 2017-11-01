@@ -32,14 +32,14 @@ def getfolder(date, sequence):
 
 
 camera = 'XY_Flea3'
-date = 20170823
-sequence = 173
-redo_prepare = False
+date = 20170905
+sequence = 75
+redo_prepare = True
 sequence_type = 'I_sat'
 crop = True
 find_center = False
-x_crop = 370#243 #[79, 328, 535], [80, 332, 178], [124, 375, 579]
-y_crop = 279#323 # [279, 344, 252], [178, 244, 151], [231, 292, 202]
+x_crop = 180#243 #[79, 328, 535], [80, 332, 178], [124, 375, 579]
+y_crop = 310#323 # [279, 344, 252], [178, 244, 151], [231, 292, 202]
 w_crop = 10
 i = 0
 
@@ -75,20 +75,26 @@ if redo_prepare:
         
         img = np.float64(img)
         atoms = img[0] - img[2]
+        atoms = atoms.T
         probe = img[1] - img[2]
+        probe = probe.T
         od = -np.log(((atoms < 1) + atoms) / ((probe < 1) + probe))
-        
+#        plt.imshow(od.T, cmap='jet', vmin=0, vmax=0.5)
+#        plt.show()
+#        
         if crop:
             
-            od = od[x_crop - w_crop: x_crop + w_crop, 
-                    y_crop - w_crop: y_crop + w_crop]
-            atoms = atoms[x_crop - w_crop: x_crop + w_crop, 
-                          y_crop - w_crop: y_crop + w_crop]
-            probe = probe[x_crop - w_crop: x_crop + w_crop, 
-                          y_crop - w_crop: y_crop + w_crop]
+            od = od[y_crop - w_crop: y_crop + w_crop, 
+                    x_crop - w_crop: x_crop + w_crop]
+            atoms = atoms[y_crop - w_crop: y_crop + w_crop, 
+                    x_crop - w_crop: x_crop + w_crop]
+            probe = probe[y_crop - w_crop: y_crop + w_crop, 
+                    x_crop - w_crop: x_crop + w_crop]
             atoms_vals.append(np.nanmean(atoms))
             probe_vals.append(np.nanmean(probe))
-            
+            plt.imshow(od, cmap='jet', vmin=0, vmax=0.5)
+            plt.show()
+                
         else:
             
             atoms_vals.append(np.nanmean(atoms))
@@ -142,7 +148,7 @@ def number(atoms, probe, isat):
     return n
     
 isat = 800
-isat_vals = np.linspace(400, 700, 100)
+isat_vals = np.linspace(400, 1900, 100)
 std_vals = []
 for isat in isat_vals:
     

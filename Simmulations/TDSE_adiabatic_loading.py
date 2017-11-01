@@ -253,95 +253,106 @@ def H_Rashba(t, qx, qy, Delta_z):
     H = np.array(H, dtype='complex')
     
     return H
+
+def H_1Dsoc(t, qx, Omega, delta):
     
+    H = [[(qx-1)**2 + delta, Omega], [Omega, (qx+2)**2]]
+    H = np.array(H, dtype='complex')
     
-#%%
+    return H
+
+
 '''
-this chunk is to plot 2D fringes for a given Ramsey wait time
-'''
- 
-Omega = 3.0
-Omega_big = 3*Omega
-delta = 0
-k = 0.1
-t0 = 0.0 # Initial time
-psi_final = []
-psi_initial = []
-phi0 = []
-phi1 = []
-phi2 = []
-kvec = np.linspace(-1, 1, 60)
-qx = 0.01
-qy = 0
-E = []
-#for t in np.linspace(0.1, 1, 2):
-t1 = 1.0 / ( Omega_big) / 8 * 1e2# free evolution time plus pi/2 pulse time
+Start with simple case, simulate 1D soc eigenstate preparation
 
-#t1 = t / Omega
-
-for qx in kvec:
-    for qy in kvec:
-
-        dt = (t1 - t0) / 1e1# 
-        t_wait = t1 - 1.0 / ( Omega_big) / 8
-        Psi0 = np.array([1,0, 0])
-        Psi0 = np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega , Omega))[1]
-        Psi0 = Psi0[:,0]
-        E.append(np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega, Omega))[0])
-        args = [H_RashbaRamsey, qx, qy, Omega, Omega_big, t_wait]
-        t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
-        #plt.plot(t_result, np.imag(psi_result[:,0]))
-    #    for i in range(3):
-    #        plt.plot(t_result, np.abs(psi_result[:, i])**2)
-#        plt.plot(t_result, np.real(psi_result[:,0])**2)
-        psi_final.append(psi_result[-1]) 
-        psi_initial.append(Psi0)
-        phi0.append(cmath.phase(Psi0[0]))
-        phi1.append(cmath.phase(Psi0[1]))
-        phi2.append(cmath.phase(Psi0[2]))
-
-#%%
-gs = gridspec.GridSpec(2, 3)
-plt.figure(figsize=(11, 3*2))
-plt.subplot(gs[0])
-nk = len(kvec)
-psi_final = np.array(psi_final)
-psi_final = psi_final.reshape(nk, nk, 3)
-
-psi_initial = np.array(psi_initial)
-psi_initial = psi_initial.reshape(nk, nk, 3)
-titles = ['z state fraction', 'x state fraction', 'y state fraction']
-
-for i in range(3):
-    plt.subplot(gs[0,2-i])
-    plt.pcolormesh(np.abs(psi_final[:,:,i])**2, cmap='Greys')
-    plt.title(titles[i] + ' final')
-    plt.colorbar()
-    plt.xticks([])
-    plt.yticks([])
-    plt.xlabel('qx')
-    plt.ylabel('qy')
     
-    plt.subplot(gs[1,2-i])
-    plt.pcolormesh(np.abs(psi_initial[:,:,i])**2, cmap='Greys')
-    plt.title(titles[i] + ' initial')
-    plt.colorbar()
-    plt.xticks([])
-    plt.yticks([])
-    plt.xlabel('qx')
-    plt.ylabel('qy')
-    
-#%%
-
-phi0 = np.array(phi0).reshape(nk, nk)
-phi1 = np.array(phi1).reshape(nk, nk)
-phi2 = np.array(phi2).reshape(nk, nk)
-
-plt.imshow(phi0 + phi1 + phi2)
-#%%    
-'''
-Rashba eigenstates vs k
-'''
+##%%
+#'''
+#this chunk is to plot 2D fringes for a given Ramsey wait time
+#'''
+# 
+#Omega = 3.0
+#Omega_big = 3*Omega
+#delta = 0
+#k = 0.1
+#t0 = 0.0 # Initial time
+#psi_final = []
+#psi_initial = []
+#phi0 = []
+#phi1 = []
+#phi2 = []
+#kvec = np.linspace(-1, 1, 60)
+#qx = 0.01
+#qy = 0
+#E = []
+##for t in np.linspace(0.1, 1, 2):
+#t1 = 1.0 / ( Omega_big) / 8 * 1e2# free evolution time plus pi/2 pulse time
+#
+##t1 = t / Omega
+#
+#for qx in kvec:
+#    for qy in kvec:
+#
+#        dt = (t1 - t0) / 1e1# 
+#        t_wait = t1 - 1.0 / ( Omega_big) / 8
+#        Psi0 = np.array([1,0, 0])
+#        Psi0 = np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega , Omega))[1]
+#        Psi0 = Psi0[:,0]
+#        E.append(np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega, Omega))[0])
+#        args = [H_RashbaRamsey, qx, qy, Omega, Omega_big, t_wait]
+#        t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
+#        #plt.plot(t_result, np.imag(psi_result[:,0]))
+#    #    for i in range(3):
+#    #        plt.plot(t_result, np.abs(psi_result[:, i])**2)
+##        plt.plot(t_result, np.real(psi_result[:,0])**2)
+#        psi_final.append(psi_result[-1]) 
+#        psi_initial.append(Psi0)
+#        phi0.append(cmath.phase(Psi0[0]))
+#        phi1.append(cmath.phase(Psi0[1]))
+#        phi2.append(cmath.phase(Psi0[2]))
+#
+##%%
+#gs = gridspec.GridSpec(2, 3)
+#plt.figure(figsize=(11, 3*2))
+#plt.subplot(gs[0])
+#nk = len(kvec)
+#psi_final = np.array(psi_final)
+#psi_final = psi_final.reshape(nk, nk, 3)
+#
+#psi_initial = np.array(psi_initial)
+#psi_initial = psi_initial.reshape(nk, nk, 3)
+#titles = ['z state fraction', 'x state fraction', 'y state fraction']
+#
+#for i in range(3):
+#    plt.subplot(gs[0,2-i])
+#    plt.pcolormesh(np.abs(psi_final[:,:,i])**2, cmap='Greys')
+#    plt.title(titles[i] + ' final')
+#    plt.colorbar()
+#    plt.xticks([])
+#    plt.yticks([])
+#    plt.xlabel('qx')
+#    plt.ylabel('qy')
+#    
+#    plt.subplot(gs[1,2-i])
+#    plt.pcolormesh(np.abs(psi_initial[:,:,i])**2, cmap='Greys')
+#    plt.title(titles[i] + ' initial')
+#    plt.colorbar()
+#    plt.xticks([])
+#    plt.yticks([])
+#    plt.xlabel('qx')
+#    plt.ylabel('qy')
+#    
+##%%
+#
+#phi0 = np.array(phi0).reshape(nk, nk)
+#phi1 = np.array(phi1).reshape(nk, nk)
+#phi2 = np.array(phi2).reshape(nk, nk)
+#
+#plt.imshow(phi0 + phi1 + phi2)
+##%%    
+#'''
+#Rashba eigenstates vs k
+#'''
 
 
 #%%
@@ -436,36 +447,36 @@ Rashba eigenstates vs k
 ##%%
 #
 #%%
-
-'''
-This chunk looks at fringes with 1D soc
-'''
-Omega = 1
-Omega_big = 5*Omega
-delta = 0
-k = 0.1
-t0 = 0.0 # Initial time
-psi_final = []
-kvec = np.linspace(-1, 1, 10)
-for k in kvec:
-    
-    for t in np.linspace(0.1, 10, 10):
-    
-        t1 = t / Omega
-        #t1 = 0.5
-        dt = (t1 - t0) / 5e3# T
-        t_wait = t1 - 1.0 / ( Omega_big) / 8
-        Psi0 = np.array([1,0])
-        Psi0 = np.linalg.eigh(H_SOC(0, k, Omega, delta))[1][:,0]
-        args = [H_Ramansey, k, Omega, Omega_big, delta, t_wait]
-        t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
-        plt.plot(t_result, np.imag(psi_result[:,1]))
-        plt.plot(t_result, np.abs(psi_result[:,1])**2)
-        plt.plot(t_result, np.real(psi_result[:,1])**2)
-        psi_final.append(np.abs(psi_result[-1])**2)
-
-plt.plot(t_result, np.abs((psi_result[:,1])**2))
-plt.xlim([t_wait, t1])
+#
+#'''
+#This chunk looks at fringes with 1D soc
+#'''
+#Omega = 1
+#Omega_big = 5*Omega
+#delta = 0
+#k = 0.1
+#t0 = 0.0 # Initial time
+#psi_final = []
+#kvec = np.linspace(-1, 1, 10)
+#for k in kvec:
+#    
+#    for t in np.linspace(0.1, 10, 10):
+#    
+#        t1 = t / Omega
+#        #t1 = 0.5
+#        dt = (t1 - t0) / 5e3# T
+#        t_wait = t1 - 1.0 / ( Omega_big) / 8
+#        Psi0 = np.array([1,0])
+#        Psi0 = np.linalg.eigh(H_SOC(0, k, Omega, delta))[1][:,0]
+#        args = [H_Ramansey, k, Omega, Omega_big, delta, t_wait]
+#        t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
+#        plt.plot(t_result, np.imag(psi_result[:,1]))
+#        plt.plot(t_result, np.abs(psi_result[:,1])**2)
+#        plt.plot(t_result, np.real(psi_result[:,1])**2)
+#        psi_final.append(np.abs(psi_result[-1])**2)
+#
+#plt.plot(t_result, np.abs((psi_result[:,1])**2))
+#plt.xlim([t_wait, t1])
 
 #%%
 #
