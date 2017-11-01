@@ -15,6 +15,7 @@ from matplotlib import pyplot as plt
 #import matplotlib.gridspec as gridspec
 from numpy.linalg import eigvalsh
 import cmath
+from scipy.linalg import expm
 
 def TDSE_Evolve(H, psi, t0, t1, dt, *args):
     """
@@ -254,17 +255,66 @@ def H_Rashba(t, qx, qy, Delta_z):
     
     return H
 
-def H_1Dsoc(t, qx, Omega, delta):
+def H_1Dsoc(t, qx=0, Omega=0, delta=0):
     
-    H = [[(qx-1)**2 + delta, Omega], [Omega, (qx+2)**2]]
+    H = [[(qx-1)**2 + delta, Omega], [Omega , (qx+2)**2]]
     H = np.array(H, dtype='complex')
     
     return H
 
+def H_1Dsoc_ramp(t, qx=0, Omega=0, delta=0, ramp_rate=1):
+    
+    if t < 1 / ramp_rate:
+    
+        H = [[(qx-1)**2 + delta, Omega * t * ramp_rate], 
+             [Omega * t * ramp_rate, (qx+2)**2 - delta]]
+        H = np.array(H, dtype='complex')
+        
+    else:
+        
+        H = H_1Dsoc(t, qx, Omega, delta)
+        
+    
+    return H
+
+
+
+def evolve(t, H, psi0, kwargs):
+    dt = np.diff(t)
+    Hlist = np.array([H(ti, *kwargs) for ti in t[:-1]+dt/2])
+    Ulist = []
+    psiList = [psi0]
+    Plist = [np.abs(psi0)**2]
+    for dti, Hi in zip(dt, Hlist):
+        Ui = expm(-1j*Hi*dti)
+        psi = np.dot(Ui, psiList[-1])
+        Ulist.append(Ui)
+        psiList.append(psi)
+        Plist.append(np.abs(psi)**2)
+    Ulist = np.array(Ulist)
+    psiList = np.array(psiList)
+    Plist = np.array(Plist)
+    return psiList, Plist, Ulist
+
 
 '''
 Start with simple case, simulate 1D soc eigenstate preparation
+'''
 
+ramp_rate = 0.01
+t = np.linspace(0, 1 / ramp_rate, 1e4) * 1.15
+Omega = 3
+qx = -1
+psi0 = [0, 1]
+kwargs = [qx, Omega, 0, 0.01]
+psi_list, P_list, U_list = evolve(t, H_1Dsoc_ramp, psi0, kwargs)
+psi_eigen = np.linalg.eigh(H_1Dsoc(t, qx, Omega, 0))[1]
+
+plt.plot(t, P_list)
+plt.plot(t[-1], np.abs(psi_eigen[0])[0]**2, 'o')
+plt.plot(t[-1], np.abs(psi_eigen[0])[1]**2, 'o')
+
+#%%
     
 ##%%
 #'''
