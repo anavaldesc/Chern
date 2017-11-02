@@ -9,8 +9,105 @@ import sys
 sys.path.append('/Users/banano/Documents/UMD/Research/Rashba/Chern/Utils')
 import numpy as np
 import matplotlib.pyplot as plt
-import TDSE
+from scipy.integrate import ode
+#import TDSE
 
+def TDSE_Evolve(H, psi, t0, t1, dt, *args):
+    """
+    Evolves the TDSE from t0 (the initial condition) to t1 with timesteps of size dt, or
+    a time step that splits the interval into equal sized bins
+    
+    H : the systems Hamiltonain, a function which takes as parameters H(t, **argvs)
+    """
+    
+    steps = np.ceil((t1 - t0)/ dt)
+    dt_correct = (t1 - t0)/steps # True timestep
+    
+    grid = np.linspace(t0, t1, num=steps)
+    
+    for t in grid:
+        psi = np.einsum("ij,j",scipy.linalg.expm(-1.0j*dt_correct*H(t, *args)),psi)
+    
+    return psi
+
+#
+# Wrapper for builtin ode solver
+# 
+
+def RHS(t, Psi_tuple, args):
+    """
+    This function generically computes the right-hand-side for our 
+    TDSE solver.
+    
+    t : time
+    
+    Psi_tuple : components of the wavefunction at time t
+            
+    args : additional arguments to be passed to H
+    
+    args[0] : function to generate hamiltonian matrix at time t
+        H has calling convention H(t, *args)
+
+    I did this this way rather than using H, *args in the calling header to overcome 
+    a bug in the interface to the underlying fortran.
+    """
+    
+    Hamiltonian = args[0]
+    args=args[1:]
+        
+    Psi = np.array(Psi_tuple)
+                
+    return np.einsum('ij,j', Hamiltonian(t, *args)/(1.0J), Psi)
+
+def ODE_Solve(Psi0, t0, t1, dt, args):
+    """
+    Solve the desired Shcrodinger based ODE 
+        
+    Psi0: initial wavefunction
+    
+    t0: initial time
+    
+    t1: final time
+    
+    dt: time step in returned paramters
+    
+    args: a tuple of arguments to be passed on to RHS
+    
+    """
+        
+    Psi_result = []
+    t_output = []
+
+    # Initialisation:
+
+    solver = ode(RHS)
+
+    backend = "zvode"
+    solver.set_integrator(backend)  # nsteps=1
+    
+    solver.set_initial_value(Psi0, t0)
+    solver.set_f_params(args)
+        
+    Psi_result.append(Psi0)
+    t_output.append(t0)
+
+#    while solver.successful() and solver.t < t1:
+#        solver.integrate(solver.t + dt, step=1)
+#
+#        Psi_result.append(solver.y)
+#        t_output.append(solver.t)
+    
+    t = t0
+    
+    while solver.successful() and t < t1:
+   
+        solver.integrate(t+dt)
+#        print t
+        Psi_result.append(solver.y)
+        t_output.append(t+dt)
+        t += dt
+        
+    return np.array(t_output), np.array(Psi_result)
 
 def H_RashbaRF(t, qx, qy, Omega1, Omega2, Omega3, delta1, delta2, delta3):
     
@@ -73,9 +170,9 @@ def H_RashbaReal(t, qx, qy, Omega1, Omega2, Omega3, omega1, omega2, omega3, E1, 
 Compare full time dependent Hamiltonian with RWA
 '''
 
-Omega1 = 7.
-Omega2 = 7.
-Omega3 = 7.
+Omega1 = 4.
+Omega2 = 4.
+Omega3 = 4.
 E1 = 0
 E2 = 224
 E3 = 224 + 140
@@ -94,10 +191,10 @@ args_real = [H_RashbaReal, qx, qy, 2* Omega1, 2* Omega2, 2*Omega3, omega1, omega
 
 Psi0 = (1, 0, 0)
 t0 = 0
-t1 = 900e-3#2/np.min([Omega1, Omega2, Omega3])
+t1 = 600e-3#2/np.min([Omega1, Omega2, Omega3])
 dt = (t1 - t0) / 1e4
-(t_rwa, Psi_rwa) = TDSE.ODE_Solve(Psi0, t0, t1, dt, args_rwa)
-(t_real, Psi_real) = TDSE.ODE_Solve(Psi0, t0, t1, dt, args_real)
+(t_rwa, Psi_rwa) = ODE_Solve(Psi0, t0, t1, dt, args_rwa)
+(t_real, Psi_real) = ODE_Solve(Psi0, t0, t1, dt, args_real)
 #%%
 lines_rwa = ['b-', 'k-', 'r-']
 lines_floquet = ['b--', 'k--', 'r--']

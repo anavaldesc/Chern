@@ -5,136 +5,11 @@ Created on Wed Sep 28 14:24:31 2016
 @author: banano
 """
 
-import scipy
-import scipy.linalg
-from scipy.integrate import ode
 import numpy as np
-import matplotlib as mpl
 from matplotlib import pyplot as plt
-#import scipy.fftpack as sf
-#import matplotlib.gridspec as gridspec
 from numpy.linalg import eigvalsh
-import cmath
+from matplotlib import gridspec
 from scipy.linalg import expm
-
-def TDSE_Evolve(H, psi, t0, t1, dt, *args):
-    """
-    Evolves the TDSE from t0 (the initial condition) to t1 with timesteps of size dt, or
-    a time step that splits the interval into equal sized bins
-    
-    H : the systems Hamiltonain, a function which takes as parameters H(t, **argvs)
-    """
-    
-    steps = np.ceil((t1 - t0)/ dt)
-    dt_correct = (t1 - t0)/steps # True timestep
-    
-    grid = np.linspace(t0, t1, num=steps)
-    
-    for t in grid:
-        psi = np.einsum("ij,j",scipy.linalg.expm(-1.0j*dt_correct*H(t, *args)),psi)
-    
-    return psi
-
-#
-# Wrapper for builtin ode solver
-# 
-
-def RHS(t, Psi_tuple, args):
-    """
-    This function generically computes the right-hand-side for our 
-    TDSE solver.
-    
-    t : time
-    
-    Psi_tuple : components of the wavefunction at time t
-            
-    args : additional arguments to be passed to H
-    
-    args[0] : function to generate hamiltonian matrix at time t
-        H has calling convention H(t, *args)
-
-    I did this this way rather than using H, *args in the calling header to overcome 
-    a bug in the interface to the underlying fortran.
-    """
-    
-    Hamiltonian = args[0]
-    args=args[1:]
-        
-    Psi = np.array(Psi_tuple)
-                
-    return np.einsum('ij,j', Hamiltonian(t, *args)/(1.0J), Psi)
-
-def ODE_Solve(Psi0, t0, t1, dt, args):
-    """
-    Solve the desired Shcrodinger based ODE 
-        
-    Psi0: initial wavefunction
-    
-    t0: initial time
-    
-    t1: final time
-    
-    dt: time step in returned paramters
-    
-    args: a tuple of arguments to be passed on to RHS
-    
-    """
-        
-    Psi_result = []
-    t_output = []
-
-    # Initialisation:
-
-    solver = ode(RHS)
-
-    backend = "zvode"
-    solver.set_integrator(backend)  # nsteps=1
-    
-    solver.set_initial_value(Psi0, t0)
-    solver.set_f_params(args)
-        
-    Psi_result.append(Psi0)
-    t_output.append(t0)
-
-#    while solver.successful() and solver.t < t1:
-#        solver.integrate(solver.t + dt, step=1)
-#
-#        Psi_result.append(solver.y)
-#        t_output.append(solver.t)
-    
-    t = t0
-    
-    while solver.successful() and t < t1:
-   
-        solver.integrate(t+dt)
-#        print t
-        Psi_result.append(solver.y)
-        t_output.append(t+dt)
-        t += dt
-        
-    return np.array(t_output), np.array(Psi_result)
-
-def SimplePlot(t_result, Psi_result, ax = None):
-    """
-    Plot data of the form we are creating
-    
-    ax : if passed, this will ask for the traces to be added to an existing axis,
-        otherwise a new one is created.
-    """
-    if ax is None:
-        fig = plt.figure(0,figsize=(6,5));
-        gs = mpl.gridspec.GridSpec(1, 1)
-        gs.update(left=0.21, right=0.98, hspace=0.05, top=0.9)
-        ax = fig.add_subplot(gs[0])
-
-    Traces = Psi_result.shape
-    
-    for trace in range(Traces[1]):
-        ax.plot(t_result*1e3, np.abs(Psi_result[:,trace])**2)
-
-    ax.set_xlabel(r'Time')
-    ax.set_ylabel(r'Population')
-#    ax.set_ylim([0,1])
 
 
 def eigen(func, i, *args):
@@ -207,20 +82,98 @@ def H_RashbaRF(t, qx, qy, Omega1, Omega2, Omega3, delta1=0, delta2=0, delta3=0):
     k3_x = np.cos(2 * np.pi)
     k3_y = -np.sin(2 * np.pi)
 #    
+    k1_x = np.cos(2 * np.pi / (360./135))
+    k1_y = -np.sin(2 * np.pi / (360./135))
+    k2_x = np.cos(2 * np.pi  / 1.6)
+    k2_y = -np.sin(2 * np.pi / 1.6)
+    k3_x = np.cos(2 * np.pi)
+    k3_y = -np.sin(2 * np.pi)
+    
+#    H = np.array([[(qx+k1_x)**2 + (qy+k1_y)**2+delta1 + delta3, 1.0j*Omega1, Omega3], 
+#          [-1.0j*Omega1, (qx+k2_x)**2 + (qy+k2_y)**2-delta1+delta2, -1.0j*Omega2], 
+#          [Omega3, 1.0j*Omega2, (qx+k3_x)**2 + (qy+k3_y)**2-delta2-delta3]])
+    
+    H = np.array([[(qx+k1_x)**2 + (qy+k1_y)**2+delta1 + delta3, Omega1, Omega3], 
+      [Omega1, (qx+k2_x)**2 + (qy+k2_y)**2-delta1+delta2, Omega2], 
+      [Omega3, Omega2, (qx+k3_x)**2 + (qy+k3_y)**2-delta2-delta3]])
+    H = np.array(H, dtype='complex')
+
+    return H 
+
+def H_RashbaRF_td(t, qx, qy, omega_zx, omega_xy, omega_yz, 
+                  Omega_zx, Omega_xy, Omega_yz):
+    
+#    Omega1 = Omega1 * 2 * np.pi
+#    Omega2 = Omega2 * 2 * np.pi
+#    Omega3 = Omega3 * 2 * np.pi
+    
+    k1_x = np.cos(2 * np.pi / 3) * np.sqrt(2)
+    k1_y = -np.sin(2 * np.pi / 3) * np.sqrt(2)
+    k2_x = np.cos(2 * np.pi * 2/ 3) * np.sqrt(2)
+    k2_y = -np.sin(2 * np.pi * 2/ 3) * np.sqrt(2)
+    k3_x = np.cos(2 * np.pi)
+    k3_y = -np.sin(2 * np.pi)
+    omega_RF = 0
 #    k1_x = np.cos(2 * np.pi / (360./135))
 #    k1_y = -np.sin(2 * np.pi / (360./135))
 #    k2_x = np.cos(2 * np.pi  / 1.6)
 #    k2_y = -np.sin(2 * np.pi / 1.6)
 #    k3_x = np.cos(2 * np.pi)
 #    k3_y = -np.sin(2 * np.pi)
+    H = np.array([[-omega_zx, 0, 0], [0, 0, 0], [0, 0, omega_xy]], 
+                 dtype='complex')
+    H += [[0, Omega_zx * np.cos((omega_zx - omega_RF) * t) , 0], 
+          [Omega_zx * np.cos((omega_zx - omega_RF) * t) , 0, 0],     
+          [0, 0, 0]]
+    H += [[0, 0, 0],
+          [0, 0, Omega_xy * np.cos(omega_xy * t)],
+          [0, Omega_xy * np.cos(omega_xy * t), 0]]  
+    H += [[0, 0,  Omega_yz * np.cos(omega_yz * t)],
+           [0, 0, 0],
+           [Omega_yz * np.cos(omega_yz * t), 0, 0]]
     
-    H = np.array([[(qx+k1_x)**2 + (qy+k1_y)**2+delta1 + delta3, 1.0j*Omega1, Omega3], 
-          [-1.0j*Omega1, (qx+k2_x)**2 + (qy+k2_y)**2-delta1+delta2, -1.0j*Omega2], 
-          [Omega3, 1.0j*Omega2, (qx+k3_x)**2 + (qy+k3_y)**2-delta2-delta3]])
-    H = np.array(H, dtype='complex')
+    H += [[(qx+k1_x)**2 + (qy+k1_y)**2, 0, 0], 
+          [0, (qx+k2_x)**2 + (qy+k2_y)**2, 0], 
+          [0, 0, (qx+k3_x)**2 + (qy+k3_y)**20]]
+
 
     return H 
     
+
+def H_RashbaRF_full(t, ramp_rate, qx, qy, Omega1, Omega2, Omega3, 
+                    omega1, omega2, omega3, E1, E2, E3, ramp):
+    
+    if ramp and t <= 1 / ramp_rate:
+        
+        Omega1 = Omega1 * 2 * np.pi * t * ramp_rate
+        Omega2 = Omega2 * 2 * np.pi * t * ramp_rate
+        Omega3 = Omega3 * 2 * np.pi * t * ramp_rate
+        
+    else:
+        Omega1 = Omega1 * 2 * np.pi
+        Omega2 = Omega2 * 2 * np.pi 
+        Omega3 = Omega3 * 2 * np.pi 
+        
+    k1_x = np.cos(2 * np.pi / 3) * np.sqrt(2)
+    k1_y = -np.sin(2 * np.pi / 3) * np.sqrt(2)
+    k2_x = np.cos(2 * np.pi * 2/ 3) * np.sqrt(2)
+    k2_y = -np.sin(2 * np.pi * 2/ 3) * np.sqrt(2)
+    k3_x = np.cos(2 * np.pi)
+    k3_y = -np.sin(2 * np.pi)
+    
+    k1_x = np.cos(2 * np.pi / (360./135))
+    k1_y = -np.sin(2 * np.pi / (360./135))
+    k2_x = np.cos(2 * np.pi  / 1.6)
+    k2_y = -np.sin(2 * np.pi / 1.6)
+    k3_x = np.cos(2 * np.pi)
+    k3_y = -np.sin(2 * np.pi)
+    
+    H = np.array([[E1 + (qx+k1_x)**2 + (qy+k1_y)**2, 1.0j*Omega1*np.cos(omega1*t), Omega3*np.cos(omega3*t)], 
+                  [-1.0j*Omega1*np.cos(omega1*t),E2 + (qx+k2_x)**2 + (qy+k2_y)**2, -1.0j*Omega2*np.cos(omega2*t)], 
+                  [Omega3*np.cos(omega3*t), 1.0j*Omega2*np.cos(omega2*t),E3 + (qx+k3_x)**2 + (qy+k3_y)**2]])
+    H = np.array(H, dtype='complex')
+
+    return H 
     
 def H_RashbaRamsey(t, qx, qy, Omega, Omega_big, t_wait):
     
@@ -311,102 +264,127 @@ psi_list, P_list, U_list = evolve(t, H_1Dsoc_ramp, psi0, kwargs)
 psi_eigen = np.linalg.eigh(H_1Dsoc(t, qx, Omega, 0))[1]
 
 plt.plot(t, P_list)
-plt.plot(t[-1], np.abs(psi_eigen[0])[0]**2, 'o')
-plt.plot(t[-1], np.abs(psi_eigen[0])[1]**2, 'o')
+plt.plot(t[-1], np.abs(psi_eigen[:,0])[0]**2, 'o')
+plt.plot(t[-1], np.abs(psi_eigen[:,0])[1]**2, 'o')
 
 #%%
-    
-##%%
-#'''
-#this chunk is to plot 2D fringes for a given Ramsey wait time
-#'''
-# 
-#Omega = 3.0
-#Omega_big = 3*Omega
-#delta = 0
-#k = 0.1
-#t0 = 0.0 # Initial time
-#psi_final = []
-#psi_initial = []
-#phi0 = []
-#phi1 = []
-#phi2 = []
-#kvec = np.linspace(-1, 1, 60)
-#qx = 0.01
-#qy = 0
-#E = []
-##for t in np.linspace(0.1, 1, 2):
-#t1 = 1.0 / ( Omega_big) / 8 * 1e2# free evolution time plus pi/2 pulse time
-#
-##t1 = t / Omega
-#
-#for qx in kvec:
-#    for qy in kvec:
-#
-#        dt = (t1 - t0) / 1e1# 
-#        t_wait = t1 - 1.0 / ( Omega_big) / 8
-#        Psi0 = np.array([1,0, 0])
-#        Psi0 = np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega , Omega))[1]
-#        Psi0 = Psi0[:,0]
-#        E.append(np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega, Omega))[0])
-#        args = [H_RashbaRamsey, qx, qy, Omega, Omega_big, t_wait]
-#        t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
-#        #plt.plot(t_result, np.imag(psi_result[:,0]))
-#    #    for i in range(3):
-#    #        plt.plot(t_result, np.abs(psi_result[:, i])**2)
-##        plt.plot(t_result, np.real(psi_result[:,0])**2)
-#        psi_final.append(psi_result[-1]) 
-#        psi_initial.append(Psi0)
-#        phi0.append(cmath.phase(Psi0[0]))
-#        phi1.append(cmath.phase(Psi0[1]))
-#        phi2.append(cmath.phase(Psi0[2]))
-#
-##%%
-#gs = gridspec.GridSpec(2, 3)
-#plt.figure(figsize=(11, 3*2))
-#plt.subplot(gs[0])
-#nk = len(kvec)
-#psi_final = np.array(psi_final)
-#psi_final = psi_final.reshape(nk, nk, 3)
-#
-#psi_initial = np.array(psi_initial)
-#psi_initial = psi_initial.reshape(nk, nk, 3)
-#titles = ['z state fraction', 'x state fraction', 'y state fraction']
-#
-#for i in range(3):
-#    plt.subplot(gs[0,2-i])
-#    plt.pcolormesh(np.abs(psi_final[:,:,i])**2, cmap='Greys')
+
+'''
+Plot Rashba eigenstates
+'''
+
+n = int(1e2)
+kvec = np.linspace(-1, 1, n)
+Delta_z = 0
+psi_rashba = []
+
+for qx in kvec:
+    for qy in kvec:
+
+        Psi0 = np.linalg.eigh( H_Rashba(t, qx, qy, Delta_z))[1]
+        Psi0 = Psi0[:,0]
+        psi_rashba.append(Psi0)
+
+gs = gridspec.GridSpec(1, 2)
+plt.figure(figsize=(11, 3))
+plt.subplot(gs[0])
+nk = len(kvec)
+psi_rashba = np.array(psi_rashba).reshape(nk, nk, 2)
+#psi_final = psi_final.resha/pe(nk, nk, 3)
+
+
+titles = ['spin up fraction', 'spin down fraction']
+
+for i in range(2):
+    plt.subplot(gs[i])
+    plt.pcolormesh(np.real(psi_rashba[:,:,i]), cmap='Greys')
 #    plt.title(titles[i] + ' final')
-#    plt.colorbar()
-#    plt.xticks([])
-#    plt.yticks([])
-#    plt.xlabel('qx')
-#    plt.ylabel('qy')
-#    
-#    plt.subplot(gs[1,2-i])
-#    plt.pcolormesh(np.abs(psi_initial[:,:,i])**2, cmap='Greys')
-#    plt.title(titles[i] + ' initial')
-#    plt.colorbar()
-#    plt.xticks([])
-#    plt.yticks([])
-#    plt.xlabel('qx')
-#    plt.ylabel('qy')
-#    
-##%%
-#
-#phi0 = np.array(phi0).reshape(nk, nk)
-#phi1 = np.array(phi1).reshape(nk, nk)
-#phi2 = np.array(phi2).reshape(nk, nk)
-#
-#plt.imshow(phi0 + phi1 + phi2)
-##%%    
-#'''
-#Rashba eigenstates vs k
-#'''
+    plt.colorbar()
+    plt.xticks([])
+    plt.yticks([])
+    plt.xlabel('qx')
+    plt.ylabel('qy')
 
-
+#some numbers seem to bave a global pi phase shift, no big deal...
 #%%
-#
+
+
+'''
+First lets see if time dependent Rashba Hamiltonian works...
+'''
+Omega = 2.
+Omega1 = Omega
+Omega2 = Omega
+Omega3 = Omega
+E1 = 0
+E2 = 224
+E3 = 224 + 140
+delta1 = 0
+delta2 = 0
+delta3 = 0
+omega1 = E2 - E1
+omega2 = E3 - E2
+omega3 = E3 - E1
+qx = 0
+qy = 0
+ramp_rate = 1
+args_floquet = [qx, qy, Omega1, Omega2, Omega3, delta1, delta2, delta3]
+args_full = [ramp_rate, qx, qy, 2* Omega1, 2* Omega2, 2*Omega3, omega1, omega2, 
+             omega3, E1, E2, E3, False]
+
+psi0 = np.array([1, 0, 0], dtype='complex')
+t = np.linspace(0, 0.5, 1e4)
+#kwargs = [qx, qy, omega_zx, omega_xy, omega_yz, Omega_zx, Omega_xy, Omega_yz]
+#kwargs_full = [qx, qy, 2* Omega1, 2* Omega, 2*Omega3, omega1, omega2, 
+#             omega3, E1, E2, E3]
+P_full = evolve(t, H_RashbaRF_full, psi0, args_full)[1]
+P_Floquet = evolve(t, H_RashbaRF, psi0, args_floquet)[1]
+plt.plot(t, P_full)
+plt.plot(t, P_Floquet, '--')
+
+# it does! Here I'm comparing FLoquet Hamiltonian with full time dependentent one
+    
+#%%
+'''
+Prepare one adiabatic Rashba eigenstate before moving onto crazy grids
+'''
+
+n = int(1e2)
+kvec = np.linspace(-1, 1, n)
+Delta_z = 0
+psi_rashba_rf = []
+Omega = 4
+
+for qx in kvec:
+    for qy in kvec:
+
+        Psi0 = np.linalg.eigh( H_RashbaRF(t, qx, qy, Omega, Omega*0, Omega*0))[1]
+        Psi0 = Psi0[:,0]
+        psi_rashba_rf.append(Psi0)
+
+gs = gridspec.GridSpec(1, 3)
+plt.figure(figsize=(11, 3))
+plt.subplot(gs[0])
+nk = len(kvec)
+psi_rashba_rf = np.array(psi_rashba_rf).reshape(nk, nk, 3)
+#psi_final = psi_final.resha/pe(nk, nk, 3)
+
+
+titles = ['z state', 'x state', 'y state']
+
+for i in range(3):
+    plt.subplot(gs[i])
+    plt.pcolormesh(np.abs(psi_rashba_rf[:,:,i])**2, cmap='Greys')
+    plt.title(titles[i])
+    plt.colorbar()
+    plt.xticks([])
+    plt.yticks([])
+    plt.xlabel('qx')
+    plt.ylabel('qy')
+    
+
+
+
 #'''
 #This chunk looks at a given q state as a function of time
 #'''
