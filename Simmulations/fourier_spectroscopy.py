@@ -10,6 +10,9 @@ sys.path.append('/Users/banano/Documents/UMD/Research/Rashba/Chern/Utils')
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import ode
+from matplotlib.gridspec import GridSpec
+from tqdm import tqdm
+
 #import TDSE
 
 def TDSE_Evolve(H, psi, t0, t1, dt, *args):
@@ -115,19 +118,19 @@ def H_RashbaRF(t, qx, qy, Omega1, Omega2, Omega3, delta1, delta2, delta3):
     Omega2 = Omega2 * 2 * np.pi
     Omega3 = Omega3 * 2 * np.pi
     
-    k1_x = np.cos(2 * np.pi / 3) * np.sqrt(2)
-    k1_y = -np.sin(2 * np.pi / 3) * np.sqrt(2)
-    k2_x = np.cos(2 * np.pi * 2/ 3) * np.sqrt(2)
-    k2_y = -np.sin(2 * np.pi * 2/ 3) * np.sqrt(2)
-    k3_x = np.cos(2 * np.pi)
-    k3_y = -np.sin(2 * np.pi)
-#    
-#    k1_x = np.cos(2 * np.pi / (360./135))
-#    k1_y = -np.sin(2 * np.pi / (360./135))
-#    k2_x = np.cos(2 * np.pi  / 1.6)
-#    k2_y = -np.sin(2 * np.pi / 1.6)
+#    k1_x = np.cos(2 * np.pi / 3) * np.sqrt(2)
+#    k1_y = -np.sin(2 * np.pi / 3) * np.sqrt(2)
+#    k2_x = np.cos(2 * np.pi * 2/ 3) * np.sqrt(2)
+#    k2_y = -np.sin(2 * np.pi * 2/ 3) * np.sqrt(2)
 #    k3_x = np.cos(2 * np.pi)
 #    k3_y = -np.sin(2 * np.pi)
+#    
+    k1_x = np.cos(2 * np.pi / (360./135))
+    k1_y = -np.sin(2 * np.pi / (360./135))
+    k2_x = np.cos(2 * np.pi  / 1.6)
+    k2_y = -np.sin(2 * np.pi / 1.6)
+    k3_x = np.cos(2 * np.pi)
+    k3_y = -np.sin(2 * np.pi)
     
     H = np.array([[(qx+k1_x)**2 + (qy+k1_y)**2+delta1 + delta3, 1.0j*Omega1, Omega3], 
           [-1.0j*Omega1, (qx+k2_x)**2 + (qy+k2_y)**2-delta1+delta2, -1.0j*Omega2], 
@@ -165,6 +168,23 @@ def H_RashbaReal(t, qx, qy, Omega1, Omega2, Omega3, omega1, omega2, omega3, E1, 
 
     return H 
 
+
+def evolve(t, H, psi0, kwargs):
+    dt = np.diff(t)
+    Hlist = np.array([H(ti, *kwargs) for ti in t[:-1]+dt/2])
+    Ulist = []
+    psiList = [psi0]
+    Plist = [np.abs(psi0)**2]
+    for dti, Hi in zip(dt, Hlist):
+        Ui = expm(-1j*Hi*dti)
+        psi = np.dot(Ui, psiList[-1])
+        Ulist.append(Ui)
+        psiList.append(psi)
+        Plist.append(np.abs(psi)**2)
+    Ulist = np.array(Ulist)
+    psiList = np.array(psiList)
+    Plist = np.array(Plist)
+    return psiList, Plist, Ulist
 #%%
 '''
 Compare full time dependent Hamiltonian with RWA
@@ -173,7 +193,7 @@ Compare full time dependent Hamiltonian with RWA
 Omega1 = 4.
 Omega2 = 4.
 Omega3 = 4.
-E1 = 0
+E1 = -23e3
 E2 = 224
 E3 = 224 + 140
 delta1 = 0
@@ -196,8 +216,8 @@ dt = (t1 - t0) / 1e4
 (t_rwa, Psi_rwa) = ODE_Solve(Psi0, t0, t1, dt, args_rwa)
 (t_real, Psi_real) = ODE_Solve(Psi0, t0, t1, dt, args_real)
 #%%
-lines_rwa = ['b-', 'k-', 'r-']
-lines_floquet = ['b--', 'k--', 'r--']
+lines_rwa = ['b--', 'k--', 'r--']
+lines_floquet = ['b-', 'k-', 'r-']
 for i in range(3):
     plt.plot(t_rwa, np.abs(Psi_rwa[:,i])**2, lines_rwa[i], 
              t_real, np.abs(Psi_real[:,i])**2,lines_floquet[i])
@@ -235,11 +255,12 @@ def k_evolve(Psi0, k_dim, t_final, n_steps, args):
     for i, kx in enumerate(kvec):
         Psi_row = []
         
-        for j, ky in enumerate(kvec):
+        for j, ky in tqdm(enumerate(kvec)):
     
             args[1] = kx
             args[2] = ky
-            (t_result, Psi_result) = TDSE.ODE_Solve(Psi0, t0, t1, dt, args)        
+            (t_result, Psi_result) = ODE_Solve(Psi0, t0, t1, dt, args) 
+#            evolve(t, H, psi0, kwargs)
             Psi_row.append(np.abs(Psi_result) ** 2)
         
         Psi_array.append(Psi_row)
@@ -252,16 +273,16 @@ def k_evolve(Psi0, k_dim, t_final, n_steps, args):
 Psi0 = (1, 0, 0)
 k_dim = 30
 t_final = 1200e-3
-n_steps = 120
+n_steps = 120*1e2
 
-t_result, Psi_array_rwa = k_evolve(Psi0, k_dim, t_final, n_steps, args_rwa)
+#t_result, Psi_array_rwa = k_evolve(Psi0, k_dim, t_final, n_steps, args_rwa)
 #%%
 t_result, Psi_array_real = k_evolve(Psi0, k_dim, t_final, n_steps, args_real)
 #%%
 
-Psi_array = Psi_array_rwa
+#Psi_array = Psi_array_rwa
 Psi_array = Psi_array_real
-from matplotlib.gridspec import GridSpec
+
 
 state = ['z state', 'x state', 'y state']
 images=[]
@@ -271,7 +292,7 @@ gs = GridSpec(1,3)
 
 for i in range(3):
     plt.subplot(gs[i])
-    plt.imshow(np.abs(Psi_array[:,:,300,i]))
+    plt.imshow(np.abs(Psi_array[:,:,120,i]))
     plt.xlabel('q_x')
     plt.ylabel('q_y')
     plt.xticks([])
@@ -284,80 +305,82 @@ for i in range(3):
 #%%
     
 #plt.plot(Psi_vec[25, 25, :,0]) 
+Psi_array = Psi_array_rwa
 
 n = len(t_result)
 dt = t_result[1] - t_result[0]
 freqs = np.fft.fftfreq(n, dt)
-psd_arr = []
+psd_array = np.zeros((k_dim, k_dim, int(n / 2), 3))
+#psd_arr = []
 for i in range(0, k_dim):
-    psd_vec  = []
-    for j in range(3):
-        pops = np.abs(Psi_array[8, i, :, j])
-#        pops = np.abs(Psi_array[i, 14, :, j])
-        fpops = np.fft.fftshift(np.fft.fft(pops - pops.mean()))
-        psd = np.abs(fpops)**2
-        psd /= psd.max()
-        psd_vec.append(psd[int(n/2)::])
+    for j in range(k_dim):
+        for k in range(3):
+            
+    
+            pops = np.abs(Psi_array[i, j, :, k])
+    #        pops = np.abs(Psi_array[i, 14, :, j])
+            fpops = np.fft.fftshift(np.fft.fft(pops - pops.mean()))
+            
+            
+            psd = np.abs(fpops[int(n / 2 )::])**2
+            psd /= psd.max()
+            psd_array[i, j, :, k] = psd
     
 #    plt.plot(freqs, psd)
 #    plt.xlim([0, freqs.max()])
-    psd_arr.append(psd_vec)
+#    psd_arr.append(psd_vec)
     
     
 #%%    
+s = psd_array.sum(axis=3)[:, :, 0:30]
+from mayavi import mlab    
+#s = psd_array.sum(axis=3)[0:20]
+mlab.pipeline.volume(mlab.pipeline.scalar_field(s), vmin=0, vmax=1)
+#mlab.show()
 
-
-psd_arr = np.array(psd_arr)
-state = ['z state', 'x state', 'y state']
-images=[]
-figure = plt.figure()
-gs = GridSpec(1,3)
-
-
-for i in range(3):
-    plt.subplot(gs[i])
-    plt.pcolormesh(psd_arr[:,i,:].T)
-#    plt.xlabel('q_x')
-#    plt.ylabel('q_y')
+	
+mlab.pipeline.image_plane_widget(mlab.pipeline.scalar_field(s),
+                            plane_orientation='x_axes',
+                            slice_index=10,
+                        )
+mlab.pipeline.image_plane_widget(mlab.pipeline.scalar_field(s),
+                            plane_orientation='y_axes',
+                            slice_index=10,
+                        )
+#mlab.outline()
+mlab.show()
+#psd_arr = np.array(psd_array)
+#state = ['z state', 'x state', 'y state']
+#images=[]
+#figure = plt.figure()
+#gs = GridSpec(1,3)
+#
+#
+#for i in range(3):
+#    plt.subplot(gs[i])
+#    plt.pcolormesh(psd_array[:,i,:].T)
+##    plt.xlabel('q_x')
+##    plt.ylabel('q_y')
+##    plt.xticks([])
+##    plt.yticks([])
+##    plt.xticks(np.linspace(0, 49, 3), ['-2', '0', '2'])
+##    plt.yticks(np.linspace(0, 49, 3), ['-2', '0', '2'])
+#    plt.title(state[i])
+##    plt.hold(False)
+#    plt.ylim([0, 80])
+#    #plt.ylim([0, 50])
 #    plt.xticks([])
 #    plt.yticks([])
-#    plt.xticks(np.linspace(0, 49, 3), ['-2', '0', '2'])
-#    plt.yticks(np.linspace(0, 49, 3), ['-2', '0', '2'])
-    plt.title(state[i])
-#    plt.hold(False)
-    plt.ylim([0, 80])
-    #plt.ylim([0, 50])
-    plt.xticks([])
-    plt.yticks([])
-    plt.xlabel('q_x')
-
-
-
-plt.axis('Tight')
-plt.ylim([0, 80])
-plt.xticks([])
-plt.yticks([])
-#plt.xlabel('q_x')
-#plt.ylabel('Frequency')
-#im = fig2img(figure)
+#    plt.xlabel('q_x')
+#
+#
+#
+#plt.axis('Tight')
+#plt.ylim([0, 80])
+#plt.xticks([])
+#plt.yticks([])
+##plt.xlabel('q_x')
+##plt.ylabel('Frequency')
+##im = fig2img(figure)
 #images.append(im)
 #%%
-
-psd_arr = np.array(psd_arr)
-plt.pcolormesh(psd_arr[:,1:].T, cmap='Greys')
-plt.axis('Tight')
-#plt.ylim([0, 30])
-plt.xticks([])
-plt.yticks([])
-plt.xlabel('q_x')
-plt.ylabel('Frequency')
-
-#writeGif("pretty.gif",images, duration=0.1, dither=0)
-#    plt.axis('Tight')
-
-#    figure = plt.figure()
-#    plot   = figure.add_subplot(111)
-#    plot.hold(False)
-
-#Psi_vec = np.array(Psi_vec)
-#Psi_reshape = Psi_vec.reshape((50, 50, 301, 3))

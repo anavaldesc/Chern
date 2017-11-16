@@ -241,18 +241,7 @@ def H_RashbaRamsey(t, qx, qy, Omega, Omega_big, t_wait):
     
     return H
     
-def H_Rashba(t, qx, qy, Delta_z):
-        
-    sigma_x = np.array([[0, 1], [1, 0]], dtype='complex')
-    sigma_y = np.array([[0, -1j], [-1j, 0]], dtype='complex')
-    sigma_z = np.array([[1, 0], [0, -1]], dtype='complex')
-    sigma_0 = np.array([[1, 0], [0, 1]], dtype='complex')
-    
-    H = (qx**2 + qy**2) * sigma_0
-    H += sigma_x * qy - sigma_y * qx + Delta_z * sigma_z 
-    H = np.array(H, dtype='complex')
-    
-    return H
+
     
     
 #%%
@@ -285,46 +274,46 @@ for qx in kvec:
         dt = (t1 - t0) / 1e1# 
         t_wait = t1 - 1.0 / ( Omega_big) / 8
         Psi0 = np.array([1,0, 0])
-        Psi0 = np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega , Omega))[1]
+        Psi0 = np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega*0, Omega*0 , Omega))[1]
         Psi0 = Psi0[:,0]
         E.append(np.linalg.eigh(H_RashbaRF(t, qx, qy, Omega, Omega, Omega))[0])
         args = [H_RashbaRamsey, qx, qy, Omega, Omega_big, t_wait]
-        t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
+#        t_result, psi_result = ODE_Solve(Psi0, t0, t1, dt, args)
         #plt.plot(t_result, np.imag(psi_result[:,0]))
     #    for i in range(3):
     #        plt.plot(t_result, np.abs(psi_result[:, i])**2)
 #        plt.plot(t_result, np.real(psi_result[:,0])**2)
-        psi_final.append(psi_result[-1]) 
+#        psi_final.append(psi_result[-1]) 
         psi_initial.append(Psi0)
         phi0.append(cmath.phase(Psi0[0]))
         phi1.append(cmath.phase(Psi0[1]))
         phi2.append(cmath.phase(Psi0[2]))
 
 #%%
-gs = gridspec.GridSpec(2, 3)
-plt.figure(figsize=(11, 3*2))
+gs = gridspec.GridSpec(1, 3)
+plt.figure(figsize=(11, 3))
 plt.subplot(gs[0])
 nk = len(kvec)
-psi_final = np.array(psi_final)
-psi_final = psi_final.reshape(nk, nk, 3)
+#psi_final = np.array(psi_final)
+#psi_final = psi_final.reshape(nk, nk, 3)
 
 psi_initial = np.array(psi_initial)
 psi_initial = psi_initial.reshape(nk, nk, 3)
 titles = ['z state fraction', 'x state fraction', 'y state fraction']
 
 for i in range(3):
-    plt.subplot(gs[0,2-i])
-    plt.pcolormesh(np.abs(psi_final[:,:,i])**2, cmap='Greys')
-    plt.title(titles[i] + ' final')
-    plt.colorbar()
-    plt.xticks([])
-    plt.yticks([])
-    plt.xlabel('qx')
-    plt.ylabel('qy')
+#    plt.subplot(gs[0,2-i])
+#    plt.pcolormesh(np.abs(psi_final[:,:,i])**2, cmap='Greys')
+#    plt.title(titles[i] + ' final')
+#    plt.colorbar()
+#    plt.xticks([])
+#    plt.yticks([])
+#    plt.xlabel('qx')
+#    plt.ylabel('qy')
     
-    plt.subplot(gs[1,2-i])
+    plt.subplot(gs[i])
     plt.pcolormesh(np.abs(psi_initial[:,:,i])**2, cmap='Greys')
-    plt.title(titles[i] + ' initial')
+    plt.title(titles[i])
     plt.colorbar()
     plt.xticks([])
     plt.yticks([])

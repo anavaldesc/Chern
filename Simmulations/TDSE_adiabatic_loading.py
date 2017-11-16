@@ -9,7 +9,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from numpy.linalg import eigvalsh
 from matplotlib import gridspec
-from scipy.linalg import expm
+#from scipy.linalg import expm
+from scipy.sparse.linalg import expm
 
 
 def eigen(func, i, *args):
@@ -99,6 +100,40 @@ def H_RashbaRF(t, qx, qy, Omega1, Omega2, Omega3, delta1=0, delta2=0, delta3=0):
     H = np.array(H, dtype='complex')
 
     return H 
+
+def H_RashbaRF_ramp(t, ramp_rate, qx, qy, Omega1, Omega2, Omega3, 
+                    delta1=0, delta2=0, delta3=0):
+    
+    if t < 1 / ramp_rate:
+        
+        Omega1 = Omega1 * 2 * np.pi * t * ramp_rate
+        Omega2 = Omega2 * 2 * np.pi * t * ramp_rate
+        Omega3 = Omega3 * 2 * np.pi * t * ramp_rate
+        
+    else: 
+        Omega1 = Omega1 * 2 * np.pi
+        Omega2 = Omega2 * 2 * np.pi
+        Omega3 = Omega3 * 2 * np.pi
+    
+
+    
+    k1_x = np.cos(2 * np.pi / (360./135))
+    k1_y = -np.sin(2 * np.pi / (360./135))
+    k2_x = np.cos(2 * np.pi  / 1.6)
+    k2_y = -np.sin(2 * np.pi / 1.6)
+    k3_x = np.cos(2 * np.pi)
+    k3_y = -np.sin(2 * np.pi)
+    
+#    H = np.array([[(qx+k1_x)**2 + (qy+k1_y)**2+delta1 + delta3, 1.0j*Omega1, Omega3], 
+#          [-1.0j*Omega1, (qx+k2_x)**2 + (qy+k2_y)**2-delta1+delta2, -1.0j*Omega2], 
+#          [Omega3, 1.0j*Omega2, (qx+k3_x)**2 + (qy+k3_y)**2-delta2-delta3]])
+    
+    H = np.array([[(qx+k1_x)**2 + (qy+k1_y)**2+delta1 + delta3, Omega1, Omega3], 
+      [Omega1, (qx+k2_x)**2 + (qy+k2_y)**2-delta1+delta2, Omega2], 
+      [Omega3, Omega2, (qx+k3_x)**2 + (qy+k3_y)**2-delta2-delta3]])
+    H = np.array(H, dtype='complex')
+    
+    return H
 
 def H_RashbaRF_td(t, qx, qy, omega_zx, omega_xy, omega_yz, 
                   Omega_zx, Omega_xy, Omega_yz):
@@ -210,7 +245,7 @@ def H_Rashba(t, qx, qy, Delta_z):
 
 def H_1Dsoc(t, qx=0, Omega=0, delta=0):
     
-    H = [[(qx-1)**2 + delta, Omega], [Omega , (qx+2)**2]]
+    H = [[(qx-1)**2 + delta, Omega], [Omega , (qx+1)**2]]
     H = np.array(H, dtype='complex')
     
     return H
@@ -218,9 +253,11 @@ def H_1Dsoc(t, qx=0, Omega=0, delta=0):
 def H_1Dsoc_ramp(t, qx=0, Omega=0, delta=0, ramp_rate=1):
     
     if t < 1 / ramp_rate:
+        
+#        delta =  delta + 4 * (1 - t * ramp_rate)
     
         H = [[(qx-1)**2 + delta, Omega * t * ramp_rate], 
-             [Omega * t * ramp_rate, (qx+2)**2 - delta]]
+             [Omega * t * ramp_rate, (qx+1)**2 - delta]]
         H = np.array(H, dtype='complex')
         
     else:
@@ -249,24 +286,61 @@ def evolve(t, H, psi0, kwargs):
     Plist = np.array(Plist)
     return psiList, Plist, Ulist
 
+#%%
 
 '''
 Start with simple case, simulate 1D soc eigenstate preparation
 '''
 
-ramp_rate = 0.01
-t = np.linspace(0, 1 / ramp_rate, 1e4) * 1.15
+ramp_rate = 0.005
+t = np.linspace(0, 1 / ramp_rate, 1e3) * 1.
 Omega = 3
-qx = -1
-psi0 = [0, 1]
-kwargs = [qx, Omega, 0, 0.01]
+qx = 0.0
+delta = 0
+psi0 = [1, 0]
+
+kwargs = [qx, Omega, delta, ramp_rate]
 psi_list, P_list, U_list = evolve(t, H_1Dsoc_ramp, psi0, kwargs)
-psi_eigen = np.linalg.eigh(H_1Dsoc(t, qx, Omega, 0))[1]
+psi_eigen = np.linalg.eigh(H_1Dsoc(t, qx, Omega, delta))[1]
 
-plt.plot(t, P_list)
-plt.plot(t[-1], np.abs(psi_eigen[:,0])[0]**2, 'o')
-plt.plot(t[-1], np.abs(psi_eigen[:,0])[1]**2, 'o')
+plt.plot(t, P_list[:,0], 'b', label='spin up probability')
+plt.plot(t, P_list[:,1], 'r', label = 'spin down probability')
+plt.plot(t[-1], np.abs(psi_eigen[:,0])[0]**2, 'bo', 
+         t[-1], np.abs(psi_eigen[:,0])[1]**2, 'ro',
+         label='Hamiltonian ground state')
+#plt.plot(t[-1], np.abs(psi_eigen[:,0])[1]**2, 'ro')
+plt.xlabel('Ramp time [hbar/E_R]')
+plt.ylabel('Probability')
+plt.legend()
+plt.show()
+#%%
 
+#
+# as a funcion of momentum:
+#
+
+P_final_array = []
+P_eigen_array = []
+kvec = np.linspace(-0.5, 0.5, 2**4)
+for qx in kvec:
+    kwargs = [qx, Omega, delta, 0.01]
+    P_final = evolve(t, H_1Dsoc_ramp, psi0, kwargs)[1][-1]
+    P_final_array.append(P_final)
+    P_eigen = np.abs(np.linalg.eigh(H_1Dsoc(t, qx, Omega, delta))[1][:,0])**2
+    P_eigen_array.append(P_eigen)
+    print(qx)
+#%%
+P_eigen_array = np.array(P_eigen_array)
+P_final_array = np.array(P_final_array)
+    
+
+#kvec = np.linspace(-2, 2, 2**5)
+plt.plot(kvec, P_eigen_array[:,0], '--b')
+plt.plot(kvec, P_eigen_array[:,1], '--r')
+plt.plot(kvec, P_final_array[:,0], 'bo')
+plt.plot(kvec, P_final_array[:,1], 'ro')
+plt.xlabel('qx [k_R]')
+plt.ylabel('Probability')
 #%%
 
 '''
@@ -312,10 +386,10 @@ for i in range(2):
 '''
 First lets see if time dependent Rashba Hamiltonian works...
 '''
-Omega = 2.
-Omega1 = Omega
-Omega2 = Omega
-Omega3 = Omega
+Omega = 8
+Omega1 = Omega * 1.
+Omega2 = Omega * 1.2
+Omega3 = Omega * 0.8
 E1 = 0
 E2 = 224
 E3 = 224 + 140
@@ -328,20 +402,27 @@ omega3 = E3 - E1
 qx = 0
 qy = 0
 ramp_rate = 1
-args_floquet = [qx, qy, Omega1, Omega2, Omega3, delta1, delta2, delta3]
-args_full = [ramp_rate, qx, qy, 2* Omega1, 2* Omega2, 2*Omega3, omega1, omega2, 
+args_floquet = [qx, qy, Omega1*0, Omega2, Omega3*0, delta1, delta2, delta3]
+args_full = [ramp_rate, qx, qy, 2* Omega1*0, 2* Omega2, 2*Omega3*0, omega1, omega2, 
              omega3, E1, E2, E3, False]
 
-psi0 = np.array([1, 0, 0], dtype='complex')
-t = np.linspace(0, 0.5, 1e4)
+psi0 = np.array([0, 1, 0], dtype='complex')
+t = np.linspace(0, 0.2, 1e4)
 #kwargs = [qx, qy, omega_zx, omega_xy, omega_yz, Omega_zx, Omega_xy, Omega_yz]
 #kwargs_full = [qx, qy, 2* Omega1, 2* Omega, 2*Omega3, omega1, omega2, 
 #             omega3, E1, E2, E3]
 P_full = evolve(t, H_RashbaRF_full, psi0, args_full)[1]
 P_Floquet = evolve(t, H_RashbaRF, psi0, args_floquet)[1]
-plt.plot(t, P_full)
-plt.plot(t, P_Floquet, '--')
 
+#%%
+color = ['b', 'k', 'r']
+label = ['z', 'x', 'y']
+for i in range(3):
+    plt.plot(t, P_full[:,i], color[i])
+    plt.plot(t, P_Floquet[:,i], color[i] + '--', label=label[i] + ' rwa')
+plt.xlabel('Pulse time [hbar/E_R]')
+plt.ylabel('Probability')
+plt.legend()
 # it does! Here I'm comparing FLoquet Hamiltonian with full time dependentent one
     
 #%%
@@ -354,11 +435,14 @@ kvec = np.linspace(-1, 1, n)
 Delta_z = 0
 psi_rashba_rf = []
 Omega = 4
+#
+#First just the ground state of the time independent Hamiltonian
+#
 
 for qx in kvec:
     for qy in kvec:
 
-        Psi0 = np.linalg.eigh( H_RashbaRF(t, qx, qy, Omega, Omega*0, Omega*0))[1]
+        Psi0 = np.linalg.eigh( H_RashbaRF(t, qx, qy, Omega, Omega, Omega))[1]
         Psi0 = Psi0[:,0]
         psi_rashba_rf.append(Psi0)
 
@@ -367,7 +451,6 @@ plt.figure(figsize=(11, 3))
 plt.subplot(gs[0])
 nk = len(kvec)
 psi_rashba_rf = np.array(psi_rashba_rf).reshape(nk, nk, 3)
-#psi_final = psi_final.resha/pe(nk, nk, 3)
 
 
 titles = ['z state', 'x state', 'y state']
@@ -382,6 +465,43 @@ for i in range(3):
     plt.xlabel('qx')
     plt.ylabel('qy')
     
+#%%
+
+qx = 1
+qy = 1
+ramp_rate = 0.0001
+Omega = 3
+
+#args_full = [ramp_rate, qx, qy, 2* Omega1, 2* Omega2, 2*Omega3, omega1, omega2, 
+#             omega3, E1, E2, E3, True]
+psi0 = np.array([1, 0, 0], dtype='complex')
+t = np.linspace(0, 1 / ramp_rate, 5e4)
+qvec = np.linspace(-1, 1, 2**3)
+#qvec = [1]
+Psi_eigen_arr = []
+P_Floquet_arr = []
+i = 0
+for qx in qvec:
+    for qy in qvec:
+        i += 1
+        Psi0 = np.linalg.eigh( H_RashbaRF(t, qx, qy, Omega, Omega, Omega, 
+                                          delta1, delta2, delta3))[1]
+        args_floquet = [ramp_rate, qx, qy, Omega, Omega, Omega, 
+                        delta1, delta2, delta3]
+        P_Floquet = evolve(t, H_RashbaRF_ramp, psi0, args_floquet)[1]
+        P_Floquet_arr.append(P_Floquet)
+        Psi_eigen_arr.append(Psi0)
+#P_full = evolve(t, H_RashbaRF_full, psi0, args_full)[1]
+#%%
+for i in range(3):
+    
+    plt.plot(t, P_Floquet[:,i], color[i])
+#    plt.plot(t, P_full[:, i], color[i])
+    plt.plot(t[-1], np.abs(Psi0[:,0][i])**2, color[i] + 'o')
+
+#
+#Adiabatic loading of (qx, qy) = (0, 0) with time idependent
+#
 
 
 

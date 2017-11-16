@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Nov 10 17:27:12 2017
+
+@author: banano
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from numpy.linalg import eigvalsh, eigh
+
+Fx = np.array([[0.0,1.0,0.0],[1.0,0.0,1.0],[0.0,1.0,0.0]])
+Fz = np.array([[1.0,0.0,0.0],[0.0,0.0,0.0],[0.0,0.0,-1.0]])
+omega_rf = 23.9e3
+epsilon = 83.236
+Omega_rf = 200
+omega_z = omega_rf
+
+def F_p(dim):
+    
+    F_p = np.zeros((dim, dim))
+    for i in range(0, dim - 1):
+        F_p[i, i + 1] = 1
+        
+    return F_p
+
+def F_m(dim):
+    
+    F_m = np.zeros((dim, dim))
+    for i in range(0, dim - 1):
+        F_m[i + 1, i] = 1
+        
+    return F_m
+
+def F_n(dim):
+    
+    F_n = np.zeros((dim, dim))
+    n = (dim - 1) / 2
+    for i in range(dim):
+        F_n[i, i] = n
+        n -= 1
+        
+    return F_n
+
+def H0(omega_z, epsilon, delta):
+    
+    H0 = Fz * (omega_z + 0*delta) + epsilon * (np.eye(3)-Fz**2)
+    
+    return H0
+
+
+def H_RF_Floquet(omega_z, epsilon, delta, omega_rf, Omega_rf, dim):
+    H_Floquet = np.kron(np.eye(dim), H0(omega_z, epsilon, delta)) 
+    H_Floquet += omega_rf * np.kron(F_n(dim), np.eye(3))
+    H_Floquet += Omega_rf / 2 * np.kron(F_p(dim) + F_m(dim), Fx)
+    
+    return H_Floquet
+
+#plt.imshow(H_Floq
+
+def eigen(func, i, *args):
+#    
+    eigenval = eigvalsh(func(*args))[i]
+    
+    return eigenval
+
+eigenarray = np.vectorize(eigen)
+
+fac = 100
+deltavec = np.linspace(-fac*epsilon, fac*epsilon, 100)
+
+dim = 5
+args = (omega_z+deltavec, -epsilon, 0, omega_rf, Omega_rf, dim)
+off = 1
+for i in range(0,  3 * dim):
+    plt.plot(deltavec, eigenarray(H_RF_Floquet, i, *args))
+    
+
+    

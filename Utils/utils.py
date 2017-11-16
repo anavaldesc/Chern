@@ -5,14 +5,20 @@ Created on Fri Aug 25 18:23:49 2017
 @author: banano
 """
 
-from collections import deque
+#from collections import deque
+import sys
+sys.path.append('/Users/banano/Documents/UMD/Research/Rashba/Chern/Utils/')
+
 from scipy.linalg import pinv, lu, solve
 import numpy as np
 import pandas as pd
 import os
 from fnmatch import fnmatch
-from skimage.feature import blob_dog, blob_log, blob_doh
+from skimage.feature import blob_log
 import matplotlib.pyplot as plt
+from image_reconstruction.cpu_reconstructor import CPUReconstructor as ImageReconstructor
+from tqdm import tqdm
+
 
 def matchfiles(dir):
     for root, dirs, files in os.walk(dir):
@@ -152,3 +158,11 @@ def fft_slice(images_stack, pos, direction, method='fft'):
     psd_arr = np.array(psd_arr)
     return psd_arr
 
+def reconstruct_probes(mask, raw_probes, raw_atoms):
+    reconstructor = ImageReconstructor()
+    reconstructor.add_ref_images(raw_probes)
+    reconstructed_probes = []
+    for atoms in tqdm(raw_atoms):
+        reconstructed_probes.append(reconstructor.reconstruct(image=atoms, mask=mask)[0])
+    del reconstructor
+    return reconstructed_probes

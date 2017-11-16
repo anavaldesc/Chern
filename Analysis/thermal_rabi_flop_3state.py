@@ -69,7 +69,7 @@ try:
                 img = np.float64(img)
                 atoms = img[0] - img[2]
                 probe = img[1] - img[2]
-                od = -np.log(((atoms < 1) + atoms) / ((probe < 1) + probe)).T
+                
                 pixels = np.zeros((2 * wx, 2 * wy, 3))
 
                 for i in range(3):

@@ -33,8 +33,9 @@ def getfolder(date, sequence):
 
 
 camera = 'ProEM'
-date = 20170831
-sequence = 68
+camera = 'XY_Flea3'
+date = 20170906
+sequence = 63
 redo_prepare = True
 sequence_type = 'x_0kr_position'
 crop = False
@@ -84,13 +85,14 @@ if redo_prepare:
             p = img[0] - img[2]
             od = -np.log(((a < 1) + a) / ((p < 1) + p))
         
-        elif camera == 'Flea3':
+        elif camera == 'XY_Flea3':
             isat = 539.393939394
             a = img[0] - img[2]
             p = img[1] - img[2]
         
             od = -np.log(((a < 1) + a) / ((p < 1) + p)) + (p - a) / isat
-            od = od
+            od = od.T
+#            plt.imshow(od)
         if crop:
             
             od = od[y_crop - wy_crop: y_crop + wy_crop, x_crop - wx_crop: x_crop + wx_crop]

@@ -29,8 +29,8 @@ def getfolder(date, sequence):
 
 
 camera = 'XY_Flea3'
-date = 20170630
-sequence = 45
+date = 20171108
+sequence = 10
 redo_prepare = True
 sequence_type = 'thermal_rabi_flop'
 
@@ -56,7 +56,9 @@ if redo_prepare:
             img = h5_file['data']['images' + camera]['Raw'][:]
             
             attrs = h5_file['globals'].attrs
-            Raman_pulse_time.append(attrs['Raman_pulse_time'])            
+            Raman_pulse_time.append(attrs['Raman_pulse_time'])    
+            attrs = h5_file['results/rois_od'].attrs
+            attrs
             
         img = np.float64(img)
         od = -np.log(((img[0] < 1) + img[0]) / ((img[1] < 1) + img[1])).T
@@ -71,7 +73,7 @@ if redo_prepare:
 
     df = df.dropna()
     df = df.sort_values(by='Raman_pulse_time')
-    df.to_hdf('results/' + outfile, 'data', mode='w')
+#    df.to_hdf('results/' + outfile, 'data', mode='w')
 else:
     df = pd.read_hdf('results/' + outfile, 'data')
 
